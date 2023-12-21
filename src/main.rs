@@ -1,60 +1,40 @@
-use rand::{rngs::ThreadRng, Rng};
-use sdl2::{pixels::Color, event::Event, keyboard::Keycode, render::Canvas, video::Window};
+use updateable::Updateable;
+
+mod renderer;
+mod renderable;
+mod input;
+mod interactable;
+mod updateable;
+mod square;
 
 fn main() {
     let sdl_context = sdl2::init().unwrap();
     let video_subsystem = sdl_context.video().unwrap();
+    let timer_subsystem = sdl_context.timer().unwrap();
 
     let window = video_subsystem.window("Kramengine", 800, 600)
         .position_centered()
         .build()
         .unwrap();
 
-    let mut canvas = window.into_canvas().build().unwrap();
+    let mut renderer = renderer::Renderer::new(window).unwrap();
+    let mut square = square::Square::new(400.0, 300.0, 100, 100);
 
-    canvas.set_draw_color(Color::RGB(0, 0, 0));
-    canvas.clear();
-    canvas.present();
+    let mut input_handler = input::InputHandler::new(&sdl_context);
+    let should_exit = false;
 
-    let mut event_pump = sdl_context.event_pump().unwrap();
-    let mut should_exit = false;
-
-    let mut rng = rand::thread_rng();
+    let mut ticks_count = 0;
 
     while !should_exit {
-        for event in event_pump.poll_iter() {
-            match event {
-                Event::Quit {..} => should_exit = true,
-                Event::MouseButtonDown {..} => {
-                    set_color(&mut rng, &mut canvas);
-                },
-                Event::KeyDown {
-                    timestamp: _,
-                    window_id: _,
-                    keycode,
-                    scancode: _,
-                    keymod: _,
-                    repeat: _
-                } => {
-                    match keycode {
-                        Some(Keycode::F) => set_color(&mut rng, &mut canvas),
-                        _ => {}
-                    }
-                },
-                _ => {}
-            }
-        }
+        input_handler.handle_events(&mut square);
+
+        let delta_time = (timer_subsystem.ticks() - ticks_count) as f64 / 1000.0;
+        ticks_count = timer_subsystem.ticks();
+
+        square.update(delta_time);
+
+        renderer.clear();
+        renderer.submit(&square);
+        renderer.present();
     }
-
-    canvas.present();
 }
-
-fn set_color(rng: &mut ThreadRng, canvas: &mut Canvas<Window>) {
-    let r = rng.gen::<u8>();
-    let g = rng.gen::<u8>();
-    let b = rng.gen::<u8>();
-
-    canvas.set_draw_color(Color::RGB(r, g, b));
-    canvas.clear();
-    canvas.present();
-} 
